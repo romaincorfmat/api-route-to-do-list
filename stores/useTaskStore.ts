@@ -14,7 +14,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
   fetchTasks: async () => {
     const res = await fetch("/api/tasks");
     if (!res.ok) {
-      throw new Error("Failed to fetch data");
+      throw new Error("Failed to fetch tasks");
     }
     set({ tasks: await res.json() });
   },
@@ -33,23 +33,48 @@ export const useTaskStore = create<TaskStore>((set) => ({
     set((state) => ({ tasks: [...state.tasks, newTask] }));
   },
   toggleCompletion: async (taskId: number) => {
+    const currentTask = useTaskStore
+      .getState()
+      .tasks.find((task) => task.id === taskId);
+    if (!currentTask) {
+      throw new Error("Task not found");
+    }
+
     set((state) => ({
       tasks: state.tasks.map((task) =>
         task.id === taskId ? { ...task, completed: !task.completed } : task
       ),
     }));
 
-    await fetch(`/api/tasks/${taskId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        completed: !useTaskStore
-          .getState()
-          .tasks.find((task) => task.id === taskId)?.completed,
-      }),
-    });
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ completed: !currentTask.completed }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to toggle task completion");
+      }
+
+      const updatedTask = await response.json();
+      set((state) => ({
+        tasks: state.tasks.map((task) =>
+          task.id === updatedTask.id ? updatedTask : task
+        ),
+      }));
+    } catch (error) {
+      set((state) => ({
+        tasks: state.tasks.map((task) =>
+          task.id === taskId
+            ? { ...task, completed: currentTask.completed }
+            : task
+        ),
+      }));
+      console.error("Error toggling task completion:", error);
+    }
   },
   deleteTask: async (taskId: number) => {
     set((state) => ({

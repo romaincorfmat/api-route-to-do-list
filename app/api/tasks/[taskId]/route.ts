@@ -1,6 +1,6 @@
 // app/api/tasks/[taskId]/route.ts
 import { NextResponse } from "next/server";
-import { tasks } from "@/fakeTasks";
+import { db } from "@/lib/db";
 
 export async function PUT(
   request: Request,
@@ -9,18 +9,24 @@ export async function PUT(
   try {
     // Await the params Promise
     const taskId = (await params).taskId;
-    const body = await request.json();
 
+    if (!taskId) {
+      return NextResponse.json(
+        { error: "Task ID is required" },
+        { status: 400 }
+      );
+    }
     // Find and update the task
-    const taskIndex = tasks.findIndex((task) => task.id === parseInt(taskId));
-    if (taskIndex === -1) {
+    const updatedTask = await db.toggleCompletion(parseInt(taskId));
+
+    if (!updatedTask) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    // Merge updates with existing task
-    tasks[taskIndex] = { ...tasks[taskIndex], ...body };
-
-    return NextResponse.json(tasks[taskIndex]);
+    return NextResponse.json({
+      updatedTask,
+      success: true,
+    });
   } catch (error) {
     return NextResponse.json(
       {
@@ -39,14 +45,22 @@ export async function DELETE(
     const taskId = (await params).taskId;
 
     // Find and update the task
-    const taskIndex = tasks.findIndex((task) => task.id === parseInt(taskId));
-    if (taskIndex === -1) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    if (!taskId) {
+      return NextResponse.json(
+        { error: "Task ID is required" },
+        { status: 400 }
+      );
     }
 
-    // Merge updates with existing task
-    const [deletedTask] = tasks.splice(taskIndex, 1);
-    return NextResponse.json({ deleted: deletedTask, success: true });
+    const deletedTask = await db.deleteTask(parseInt(taskId));
+
+    if (!deletedTask) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+    return NextResponse.json({
+      message: "Task deleted successfully",
+      success: true,
+    });
   } catch (error) {
     return NextResponse.json(
       {

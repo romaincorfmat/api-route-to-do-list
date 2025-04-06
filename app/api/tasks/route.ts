@@ -1,20 +1,13 @@
-import { tasks } from "@/fakeTasks";
-import { revalidatePath } from "next/cache";
+import { db } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
-  revalidatePath("/");
+  const tasks = await db.getTasks();
   return NextResponse.json(tasks);
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const newTask = {
-    id: Date.now(),
-    title: body.title,
-    completed: false,
-  };
-  tasks.push(newTask);
-  revalidatePath("/");
+  const { title } = await req.json();
+  const newTask = await db.createTask(title);
   return NextResponse.json(newTask, { status: 201 });
 }
